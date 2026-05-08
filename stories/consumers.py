@@ -50,17 +50,17 @@ class StoryConsumer(AsyncJsonWebsocketConsumer):
         await self.accept()
 
         # Send current turn state (if any)
-        current_turn_user_id = redis_client.get(f'story:{self.story_id}:turn')
-        if current_turn_user_id:
-            try:
+        try:
+            current_turn_user_id = redis_client.get(f'story:{self.story_id}:turn')
+            if current_turn_user_id:
                 turn_user = await self.get_user(int(current_turn_user_id.decode()))
                 await self.send_json({
                     'type': 'turn_changed',
                     'user_id': turn_user.id,
                     'username': turn_user.username
                 })
-            except Exception:
-                pass
+        except Exception as e:
+            print(f"Redis error in connect: {e}")
 
         # Notify others
         await self.channel_layer.group_send(
@@ -73,7 +73,7 @@ class StoryConsumer(AsyncJsonWebsocketConsumer):
         )
 
     async def disconnect(self, close_code):
-        if hasattr(self, 'room_group_name'):
+        if hasattr(self, 'room_group_name') and hasattr(self, 'user'):
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -103,17 +103,20 @@ class StoryConsumer(AsyncJsonWebsocketConsumer):
     async def handle_typing(self, content):
         is_typing = content.get('is_typing', False)
         # Only broadcast if the user is the current turn holder
-        current_turn = redis_client.get(f'story:{self.story_id}:turn')
-        if current_turn and int(current_turn) == self.user.id:
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'user_typing',
-                    'user_id': self.user.id,
-                    'username': self.username,
-                    'is_typing': is_typing
-                }
-            )
+        try:
+            current_turn = redis_client.get(f'story:{self.story_id}:turn')
+            if current_turn and int(current_turn) == self.user.id:
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'user_typing',
+                        'user_id': self.user.id,
+                        'username': self.username,
+                        'is_typing': is_typing
+                    }
+                )
+        except Exception as e:
+            print(f"Redis error in handle_typing: {e}")
 
     async def handle_submit_paragraph(self, content):
         paragraph = content.get('content', '').strip()
@@ -121,10 +124,13 @@ class StoryConsumer(AsyncJsonWebsocketConsumer):
             return
 
         # Check turn
-        current_turn = redis_client.get(f'story:{self.story_id}:turn')
-        if not current_turn or int(current_turn) != self.user.id:
-            await self.send_json({'type': 'error', 'message': 'It is not your turn.'})
-            return
+        try:
+            current_turn = redis_client.get(f'story:{self.story_id}:turn')
+            if current_turn and int(current_turn) != self.user.id:
+                await self.send_json({'type': 'error', 'message': 'It is not your turn.'})
+                return
+        except Exception as e:
+            print(f"Redis error in handle_submit_paragraph: {e}")
 
         # Save segment to DB
         segment = await self.save_segment(self.story_id, self.user, paragraph)
@@ -167,7 +173,10 @@ class StoryConsumer(AsyncJsonWebsocketConsumer):
         next_user = await self.get_user(next_user_id)
 
         # Set turn in Redis (no TTL for now)
-        redis_client.set(f'story:{self.story_id}:turn', next_user_id)
+        try:
+            redis_client.set(f'story:{self.story_id}:turn', next_user_id)
+        except Exception as e:
+            print(f"Redis error in assign_next_turn: {e}")
         # Broadcast turn change
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -207,7 +216,7 @@ class StoryConsumer(AsyncJsonWebsocketConsumer):
         })
 
     async def user_typing(self, event):
-        if event['user_id'] != self.user.id:
+        if hasattr(self, 'user') and event['user_id'] != self.user.id:
             await self.send_json({
                 'type': 'user_typing',
                 'user_id': event['user_id'],
@@ -216,7 +225,7 @@ class StoryConsumer(AsyncJsonWebsocketConsumer):
             })
 
     async def user_joined(self, event):
-        if event['user_id'] != self.user.id:
+        if hasattr(self, 'user') and event['user_id'] != self.user.id:
             await self.send_json({
                 'type': 'user_joined',
                 'user_id': event['user_id'],
@@ -224,7 +233,7 @@ class StoryConsumer(AsyncJsonWebsocketConsumer):
             })
 
     async def user_left(self, event):
-        if event['user_id'] != self.user.id:
+        if hasattr(self, 'user') and event['user_id'] != self.user.id:
             await self.send_json({
                 'type': 'user_left',
                 'user_id': event['user_id'],

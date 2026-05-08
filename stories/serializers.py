@@ -50,7 +50,7 @@ class StoryDetailSerializer(serializers.ModelSerializer):
 class CreateStorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Story
-        fields = ['title', 'genre', 'max_authors', 'is_public']
+        fields = ['id', 'title', 'genre', 'max_authors', 'is_public']
 
 class StoryParticipantActionSerializer(serializers.Serializer):
     # Used for join/leave (no extra fields needed)

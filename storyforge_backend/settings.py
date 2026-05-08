@@ -10,7 +10,13 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'unsafe-key-for-dev')
 
 DEBUG = os.getenv('DEBUG', '1') == '1'
 
-ALLOWED_HOSTS = ['*']   # tighten in production
+ALLOWED_HOSTS = ['localhost', 'http://localhost:3000']
+# CORS_ALLOW_ALL_ORIGINS = True  # 👈 For development
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
+
+CSRF_TRUSTED_ORIGINS = ['http://localhost:3000']
 
 INSTALLED_APPS = [
     'daphne',
@@ -78,10 +84,7 @@ DATABASES = {
 REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [REDIS_URL],
-        },
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
     },
 }
 
