@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Story, StoryParticipant
+from .models import Story, StoryParticipant, StorySegment
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -55,3 +55,10 @@ class CreateStorySerializer(serializers.ModelSerializer):
 class StoryParticipantActionSerializer(serializers.Serializer):
     # Used for join/leave (no extra fields needed)
     pass
+
+class StorySegmentSerializer(serializers.ModelSerializer):
+    author_user = serializers.StringRelatedField()
+
+    class Meta:
+        model = StorySegment
+        fields = ['id', 'author_type', 'author_user', 'content', 'sequence_number', 'created_at']

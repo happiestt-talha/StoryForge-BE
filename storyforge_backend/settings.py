@@ -13,6 +13,7 @@ DEBUG = os.getenv('DEBUG', '1') == '1'
 ALLOWED_HOSTS = ['*']   # tighten in production
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -68,13 +69,13 @@ DATABASES = {
         'NAME': os.getenv('POSTGRES_DB', 'storyforge'),
         'USER': os.getenv('POSTGRES_USER', 'storyforge_user'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'storyforge_pass'),
-        'HOST': os.getenv('DB_HOST', 'db'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
 # Redis / Channels
-REDIS_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',

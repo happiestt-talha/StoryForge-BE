@@ -2,12 +2,16 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from django.conf import settings
+from django.db.models import Q
+import redis
 
 from .models import Story, StoryParticipant
 from .serializers import (
     StoryListSerializer, StoryDetailSerializer,
     CreateStorySerializer, StoryParticipantSerializer,
-    StoryParticipantActionSerializer
+    StoryParticipantActionSerializer,
+    StorySegmentSerializer
 )
 from .permissions import IsStoryParticipant, IsStoryOwner
 
@@ -91,15 +95,26 @@ class StoryViewSet(viewsets.ModelViewSet):
             )
         story.status = Story.Status.ACTIVE
         story.save()
-        # For Phase 1 we don't initiate turn logic yet
+        
+        # NEW: Initialize turn to story owner in Redis
+        r = redis.from_url(settings.REDIS_URL)
+        r.set(f'story:{story.id}:turn', story.owner.id)
+        
         return Response({'detail': 'Story started', 'status': story.status})
 
+    @action(detail=True, methods=['get'])
+    def segments(self, request, pk=None):
+        story = self.get_object()
+        qs = story.segments.all().order_by('sequence_number')
+        # You can add pagination here if needed
+        serializer = StorySegmentSerializer(qs, many=True)
+        return Response(serializer.data)
     # Only show stories where user is participant (my stories) and optionally public stories
     def get_queryset(self):
         user = self.request.user
         if self.action == 'list':
             # Return both public stories and the ones user participates in
             return Story.objects.filter(
-                models.Q(participants=user) | models.Q(is_public=True)
+                Q(participants=user) | Q(is_public=True)
             ).distinct()
         return Story.objects.all()   # detail/join will be filtered by permissions
